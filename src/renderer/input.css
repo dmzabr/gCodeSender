@@ -1,0 +1,141 @@
+/* body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  margin: auto;
+  max-width: 38rem;
+  padding: 2rem;
+} */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Poppins', sans-serif;
+
+  /* font-family: sans-serif; */
+  overflow: hidden;
+  height: 80vh;
+}
+
+.btn {
+  @apply w-full justify-center py-1 px-2 border border-transparent shadow-sm text-sm font-medium rounded-md;
+}
+.btn-primary {
+  @apply text-white bg-teal-500 hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500;
+}
+.btn-cell {
+  @apply py-1 px-1 text-gray-700 text-center;
+}
+
+.btn-active {
+  @apply bg-teal-900 text-white outline-none ring-2 ring-offset-2 ring-teal-500;
+}
+.btn-icon {
+  @apply py-1 px-1 shadow-sm text-sm font-medium rounded-md  focus:outline-none;
+}
+*:disabled {
+  /* opacity: 0.75; */
+  cursor: not-allowed;
+}
+
+/* .section {
+  @apply bg-gray-50 rounded-md shadow-lg p-3;
+} */
+.section {
+  @apply min-w-80 bg-white p-3 rounded-md shadow-md  flex flex-col align-middle gap-3;
+}
+
+.card {
+  @apply bg-white p-3 rounded-md shadow-md  flex flex-col align-middle gap-2;
+}
+
+.input-control {
+  @apply flex align-middle gap-2 py-1 border-b-2 border-gray-200 shadow-sm rounded-sm;
+}
+.label {
+  @apply font-medium leading-6 text-gray-700 mr-auto my-auto;
+}
+
+.input {
+  @apply w-16 h-8 rounded-md border-0 py-0.5 pl-1 pr-2 text-gray-700 text-center text-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-blue-600  sm:leading-6 justify-end;
+}
+.radio {
+  @apply w-6 h-6 rounded-md border-0 py-0.5 pl-1 pr-2 text-gray-700 text-center text-xs  ring-inset ring-transparent  focus:ring-1 focus:ring-inset  sm:leading-6 justify-end;
+}
+
+.input-SM {
+  @apply min-w-16 h-8 rounded-md border-0 py-0.5 pl-1 pr-2 text-gray-700 text-center text-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-1 focus:ring-inset focus:ring-blue-600  sm:leading-6 justify-end;
+}
+
+.li {
+  @apply flex justify-between gap-x-1 py-1;
+}
+.form {
+  @apply flex flex-col gap-2;
+}
+.tablet-form {
+  @apply flex flex-col;
+}
+.cell {
+  @apply bg-gray-200 rounded-sm border-solid border-[1px] border-gray-400 flex align-middle w-8 h-8 p-1;
+}
+/* display: flex;
+  align-items: center;
+  justify-content: center;
+  /* background: lightgray; */
+/* width: 30px;
+  height: 30px; */
+
+/* padding: 3px; */
+.cellInput {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 30px;
+  height: 30px;
+  border: gray 1px solid;
+}
+
+/* .input-m {
+  @apply w-24;
+}
+.input-s {
+  @apply w-16;
+} */
+
+/* h-full rounded-md border-0 bg-transparent py-1.5 pl-2 pr-2 text-gray-500 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm" */
+/* rgb(75 85 99 */
+.scrollable {
+  overflow-y: auto;
+  -ms-overflow-style: none;
+}
+
+.nonscrollbar {
+  scrollbar-width: none;
+}
+
+.select {
+  @apply rounded-md border-0 bg-transparent py-1.5 pl-2 pr-2 text-gray-500 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm scroll-smooth;
+}
+.status {
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  background-color: #f3f3f3;
+  border-radius: 4px;
+  margin-top: 15px;
+}
+
+.progress {
+  width: 0;
+  height: 20px;
+  background-color: #14b8a6;
+  border-radius: 4px;
+  text-align: center;
+  color: white;
+}

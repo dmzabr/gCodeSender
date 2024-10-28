@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- <meta http-equiv="Content-Security-Policy" content="script-src 'self' " /> -->
+    <!-- <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'unsafe-inline'"
+    /> -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <script type="module" src="./js/renderer.js" defer></script>
+
+    <title>G-code Sender</title>
+  </head>
+  <body class="bg-gray-100 text-gray-600 text-sm p-2">
+    <!-- <h1 class="text-center text-3xl font-semibold mb-5">G-Code Generator</h1> -->
+    <!-- <div class="container mx-auto "> -->
+    <div class="xl:container xl:mx-auto h-screen scrollable nonscrollbar">
+      <div class="flex flex-row gap-3 justify-center align-middle">
+        <!-- Форма с общими значениями  -->
+        <section class="section">
+          <h2 class="text-lg font-bold text-center">Подключение:</h2>
+
+          <!-- <label for="port-select" class="label"
+            ><h2 class="text-lg font-bold text-center">Порт:</h2></label
+          > -->
+          <select id="port-select" class="select">
+            <option value="" disabled selected>Выберите порт:</option>
+            <!-- <option value="1">1:</option>
+            <option value="2">2:</option> -->
+          </select>
+          <div class="connection-settings">
+            </select>
+            <button id="upload-file-button" type="button">Загрузить файл</button>
+          </div>
+          
+          <div id="status" class="hidden"></div>
+          <div id="progress-bar" class="hidden">
+            <div id="progress"></div>
+          </div>
+          <h2 class="text-lg font-bold text-center">Общие настройки:</h2>
+          <form id="form-generalSettings" class="form">
+            <!-- Movement Speed   (mm/min or in/min)  -->
+            <div class="input-control">
+              <label class="label" for="movementSpeed"
+                >Скорость движения (X, Y, Z):</label
+              >
+              <input
+                class="input"
+                type="number"
+                name="movementSpeed"
+                id="movementSpeed"
+                value="1000"
+                min="0"
+                required
+              />
+            </div>
+
+            <div class="input-control">
+              <label class="label" for="safeZ">Безопасная высота (Z):</label>
+              <input
+                class="input"
+                type="number"
+                name="safeZ"
+                id="safeZ"
+                value="-5"
+                required
+                title="Safe Z for initial move to XY0"
+              />
+            </div>
+            <!-- Z Direction -->
+            <div class="input-control">
+              <label class="label" for="zDirection">Направление Z:</label>
+              <label for="positive">+</label>
+              <input
+                type="radio"
+                id="positive"
+                name="zDirection"
+                value="1"
+                checked
+              />
+              <label for="negative">-</label>
+              <input type="radio" id="negative" name="zDirection" value="0" />
+            </div>
+
+            <!-- <div class="input-control">
+              <button class="btn btn-primary" type="button">Save</button>
+            </div> -->
+            <!-- </form> -->
+
+            <!-- <form id="form-blockStage1" class="form"> -->
+            <h2 class="text-lg font-bold text-center">Калибровка планшета:</h2>
+
+            <!-- лунка А1 -->
+            <div class="input-control">
+              <label class="label" for="tab-1">A1:</label>
+              <div class="flex align-middle gap-1">
+                <label class="label" for="A1-X">X:</label>
+                <input
+                  type="number"
+                  id="A1-X"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="A1-Y">Y:</label>
+                <input
+                  type="number"
+                  id="A1-Y"
+                  name="tab-1"
+                  value="63"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="A1-Z">Z:</label>
+                <input
+                  type="number"
+                  id="A1-Z"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+              </div>
+            </div>
+
+            <!-- лунка А12 -->
+            <div class="input-control">
+              <label class="label" for="tab-1">A12:</label>
+              <div class="flex align-middle gap-1">
+                <label class="label" for="A12-X">X:</label>
+                <input
+                  type="number"
+                  id="A12-X"
+                  name="tab-1"
+                  value="99"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="A12-Y">Y:</label>
+                <input
+                  type="number"
+                  id="A12-Y"
+                  name="tab-1"
+                  value="63"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="A12-Z">Z:</label>
+                <input
+                  type="number"
+                  id="A12-Z"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+              </div>
+            </div>
+            <!-- лунка H12 -->
+            <div class="input-control">
+              <label class="label" for="tab-1">H1:</label>
+              <div class="flex align-middle gap-1">
+                <label class="label" for="H1-X">X:</label>
+                <input
+                  type="number"
+                  id="H1-X"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="H1-Y">Y:</label>
+                <input
+                  type="number"
+                  id="H1-Y"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+                <label class="label" for="H1-Z">Z:</label>
+                <input
+                  type="number"
+                  id="H1-Z"
+                  name="tab-1"
+                  value="0"
+                  class="input"
+                  step="0.001"
+                />
+              </div>
+            </div>
+
+            <button class="btn btn-primary" type="submit">
+              Сохранить настройки
+            </button>
+          </form>
+        </section>
+
+        <section class="section" id="section1">
+          <div class="flex flex-col gap-2">
+            <div class="input-control">
+              <label for="step" class="label">Шаг, мм:</label>
+              <input type="number" class="input" id="step" value="1" />
+            </div>
+            <!-- X -->
+            <div class="input-control">
+              <label for="xPosition" class="label">X:</label>
+              <input
+                type="text"
+                class="input"
+                id="xPosition"
+                value="0"
+                readonly="true"
+              />
+              <button class="btn btn-primary" id="btnAddX">+</button>
+              <button class="btn btn-primary" id="btnSubstractX">-</button>
+              <button class="btn btn-primary" id="btnHomeX">Home</button>
+            </div>
+            <!-- X -->
+            <div class="input-control">
+              <label for="xPosition" class="label">Y:</label>
+              <input
+                type="text "
+                class="input"
+                id="yPosition"
+                value="0"
+                readonly="true"
+              />
+              <button class="btn btn-primary" id="btnAddY">+</button>
+              <button class="btn btn-primary" id="btnSubstractY">-</button>
+              <button class="btn btn-primary" id="btnHomeY">Home</button>
+            </div>
+            <div class="input-control">
+              <label for="zPosition" class="label">Z:</label>
+              <input
+                type="text"
+                class="input"
+                id="zPosition"
+                value="0"
+                readonly="true"
+              />
+              <button class="btn btn-primary" id="btnAddZ">+</button>
+              <button class="btn btn-primary" id="btnSubstractZ">-</button>
+              <button class="btn btn-primary" id="btnHomeZ">Home</button>
+            </div>
+          </div>
+          <h2 class="text-lg font-bold text-center">Выбрать ячейку:</h2>
+          <div class="flex flex-col">
+            <form class="tablet-form">
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">96</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">1</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">2</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">3</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">4</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">5</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">6</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">7</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">8</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">9</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">10</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">11</button>
+                </div>
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">12</button>
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">A</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="A12" />
+                </div>
+              </div>
+              <div class=" flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">B</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="B12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">C</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="C12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">D</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="D12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">E</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="E12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">F</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="F12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">G</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="G12" />
+                </div>
+              </div>
+              <div class="flex flex-row">
+                <div class="cell">
+                  <button class="btn btn-cell" type="button">H</button>
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H1" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H2" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H3" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H4" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H5" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H6" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H7" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H8" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H9" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H10" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H11" />
+                </div>
+                <div class="cell">
+                  <input class="radio" type="radio" name="cell" value="H12" />
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+    <!-- </div> -->
+  </body>
+</html>
