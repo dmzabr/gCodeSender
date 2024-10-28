@@ -53,7 +53,7 @@ app.on('window-all-closed', () => {
 
 // Function to open port
 const openPort = (selectedPort) => {
-  if (portOpen) return Promise.reject('Порт уже открыт.');
+  if (portOpen) return Promise.reject('AAAAA Порт уже открыт.');
 
   return new Promise((resolve, reject) => {
     currentPort = new SerialPort({ path: selectedPort, baudRate: 115200 });
