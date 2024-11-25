@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('upload-status', (event, status) => callback(status)),
   receiveProgressUpdate: (callback) =>
     ipcRenderer.on('progress-update', (event, progress) => callback(progress)),
+  showOpenDialog: () => ipcRenderer.invoke('showOpenDialog')
   // Передача версии приложения в интерфейс
   // getVersion: () => app.getVersion(),
-})
+});
