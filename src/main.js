@@ -1,92 +1,132 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('node:path');
-const { store, defaultData } = require('./store');
-const { SerialPort } = require('serialport');
-const fs = require('fs');
+const { app, BrowserWindow, ipcMain } = require('electron')
+const path = require('node:path')
+const { store, defaultData } = require('./store')
+const { SerialPort } = require('serialport')
+const fs = require('fs')
 
-let portOpen = false;
-let isPaused = false; // Флаг для паузы
-let lastResponse = ''; // Переменная для хранения последнего ответа
-let currentPositionChecked = false; // Флаг для проверки текущей позиции
-let currentPort; // Хранит текущий открытый порт
-
+let portOpen = false; // Флаг, указывающий открыт ли порт
 const isDev = false;
+let port; // Объявляем переменную port заранее
+let isSended = false
+
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
-  app.quit();
+  app.quit()
 }
 
 const createWindow = () => {
+  // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: isDev ? 1440 : 800,
+    width: isDev ? 1440 : 8000,
     height: isDev ? 900 : 600,
+
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true,
-      contextIsolation: true,
+      nodeIntegration: true, // to allow require
+      contextIsolation: true, // allow use with Electron 12+
     },
-  });
+  })
 
-  mainWindow.loadFile(path.join(__dirname, './renderer/index.html'));
+  // and load the index.html of the app.
+  mainWindow.loadFile(path.join(__dirname, './renderer/index.html'))
 
+  // Open the DevTools.
   if (isDev) {
     mainWindow.webContents.openDevTools();
   }
 };
 
-app.whenReady().then(() => {
-  createWindow();
 
+// This method will be called when Electron has finished
+// initialization and is ready to create browser windows.
+// Some APIs can only be used after this event occurs.
+app.whenReady().then(() => {
+  createWindow()
+
+  // On OS X it's common to re-create a window in the app when the
+  // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow()
     }
+  })
+})
+
+// Загрузка файла
+const { dialog } = require('electron');
+
+ipcMain.handle('showOpenDialog', async () => {
+  return await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'G-code Files', extensions: ['gcode', 'txt'] }]
   });
 });
 
+
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit();
+    app.quit()
   }
-});
+})
 
-// Function to open port
-const openPort = (selectedPort) => {
-  if (portOpen) return Promise.reject('AAAAA Порт уже открыт.');
+// In this file you can include the rest of your app's specific main process
+// code. You can also put them in separate files and import them here.
 
-  return new Promise((resolve, reject) => {
-    currentPort = new SerialPort({ path: selectedPort, baudRate: 115200 });
-    currentPort.on('open', () => {
-      console.log('Порт открыт');
-      portOpen = true;
-      resolve();
-    });
+// READ
+ipcMain.handle('data:getValues', (event, key) => {
+  return store.get(key)
+})
 
-    currentPort.on('error', (err) => {
-      console.error('Ошибка порта:', err.message);
-      reject(err.message);
-    });
+// Save an object
+ipcMain.on('data:save', (e, data) => {
+  Object.entries(data).forEach(([key, value]) => {
+    store.set(`${key}`, value)
+  })
+})
 
-    currentPort.on('close', () => {
-      portOpen = false;
-      console.log('Порт закрыт');
-    });
-  });
-};
+// Update value
+ipcMain.on('data:saveValue', (e, data) => {
+  const [name, object] = data
 
-// Upload G-code
-ipcMain.on('upload-gcode', async (event, { gcodeData, selectedPort }) => {
-  if (!gcodeData || typeof gcodeData !== 'string') {
-    console.error('Ошибка: G-code данные не переданы или имеют неверный формат.');
-    event.reply('upload-status', { success: false, error: 'Неверные данные G-code.' });
-    return;
-  }
+  Object.entries(object).forEach(([key, value]) => {
+    store.set(`${name}.${key}`, value)
+  })
+})
 
+// RESET to default config
+ipcMain.on('data:reset', (e) => {
+  console.log(defaultData)
+  store.set('data', defaultData)
+})
+// DELETE
+ipcMain.on('data:delete', (e) => {
+  store.delete('data')
+})
+
+ipcMain.on('request-ports', async (event) => {
   try {
-    await openPort(selectedPort);
+    const ports = await SerialPort.list()
+    const portList = ports.map((port) => port.path)
+    event.reply('port-list', portList)
   } catch (err) {
-    event.reply('upload-status', { success: false, error: err });
+    console.error('Ошибка получения списка портов:', err.message)
+    event.reply('port-list', [])
+  }
+})
+
+ipcMain.on('upload-gcode', (event, { gcodeData, selectedPort }) => {
+  if (!gcodeData || typeof gcodeData !== 'string') {
+    console.error(
+      'Ошибка: G-code данные не переданы или имеют неверный формат.'
+    );
+    event.reply('upload-status', {
+      success: false,
+      error: 'Неверные данные G-code.',
+    });
     return;
   }
 
@@ -94,139 +134,68 @@ ipcMain.on('upload-gcode', async (event, { gcodeData, selectedPort }) => {
   let currentLine = 0;
 
   const sendNextLine = () => {
-    if (isPaused || currentLine >= gcodeLines.length) return;
-
-    let line = gcodeLines[currentLine].trim();
-    if (line.startsWith(';')) {
-      console.log(`Пропускаем строку-комментарий: ${line}`);
-      currentLine++;
-      sendNextLine();
+    if (!port) {
+      console.error('Ошибка: порт не инициализирован');
+      event.reply('upload-status', { success: false, error: 'Порт не инициализирован' });
       return;
     }
-
-    currentPort.write(line + '\n', (err) => {
-      if (err) {
-        console.error('Ошибка при отправке строки:', err.message);
-        event.reply('upload-status', { success: false, error: err.message });
-        return;
-      }
-      console.log(`Отправлено: ${line}`);
-    });
+  
+    if (currentLine < gcodeLines.length) {
+      let line = gcodeLines[currentLine];
+      port.write(line + '\n', (err) => {
+        if (err) {
+          console.error('Ошибка при отправке строки:', err.message);
+          event.reply('upload-status', { success: false, error: err.message });
+        } else if (isSended == true) {
+          currentLine++;
+          event.reply('progress-update', {
+            progress: (currentLine / gcodeLines.length) * 100,
+          });
+          setTimeout(sendNextLine, 1); // Пауза в 3 секунды между строками
+        } else {
+          currentLine++;
+          event.reply('progress-update', {
+            progress: (currentLine / gcodeLines.length) * 100,
+          });
+          isSended = true;
+          setTimeout(sendNextLine, 3000); // Пауза в 3 секунды при включении
+        }
+      });
+    } else {
+      return
+    }
   };
+  
 
-  currentPort.on('data', (data) => {
-    lastResponse += data.toString().trim();
-    console.log('Получены данные:', lastResponse);
+  if (portOpen) {
+    console.log('Порт уже открыт, продолжаем выполнение.');
+    sendNextLine(); // Продолжаем отправку, если порт уже открыт
+    return;
+  }
 
-    if (lastResponse.includes('ok')) {
-      currentLine++;
-      event.reply('progress-update', { progress: (currentLine / gcodeLines.length) * 100 });
+  // Инициализируем порт только сейчас
+  port = new SerialPort({ path: selectedPort, baudRate: 115200 });
 
-      if (!currentPositionChecked && currentLine % 10 === 0) {
-        currentPort.write('M114\n', (err) => {
-          if (err) {
-            console.error('Ошибка при отправке M114:', err.message);
-          } else {
-            currentPositionChecked = true;
-          }
-        });
-      } else {
-        currentPositionChecked = false;
-      }
+  port.on('open', () => {
+    console.log('Порт открыт');
+    portOpen = true;
+    sendNextLine(); // Начинаем отправку первой строки
+  });
 
-      setTimeout(sendNextLine, 100);
-    } else if (currentLine === 0) {
-      currentLine++;
-      event.reply('progress-update', { progress: (currentLine / gcodeLines.length) * 100 });
-      setTimeout(sendNextLine, 5000);
+  port.on('data', (data) => {
+    if (data.includes('ok')) {
+      // Пропускаем строку, если принтер вернул 'ok'
     }
   });
 
-  // обработка ошибки порта
-  currentPort.on('error', (err) => {
+  port.on('error', (err) => {
     console.error('Ошибка порта:', err.message);
     event.reply('upload-status', { success: false, error: err.message });
     portOpen = false;
   });
 
-  currentPort.on('close', () => {
-    portOpen = false;
-    console.log('Порт закрыт');
-  });
+  // port.on('close', () => {
+  //   portOpen = false;
+  //   console.log('Порт закрыт');
+  // });
 });
-
-// Запрос доступных портов
-ipcMain.on('request-ports', async (event) => {
-  try {
-    const ports = await SerialPort.list();
-    const portList = ports.map((port) => port.path);
-    event.reply('port-list', portList);
-  } catch (err) {
-    console.error('Ошибка получения списка портов:', err.message);
-    event.reply('port-list', []);
-  }
-});
-
-
-// Обработка запроса на остановку передачи
-ipcMain.on('stop-upload', (event) => {
-  if (portOpen) {
-    isPaused = true;
-    currentPort.close((err) => {
-      if (err) {
-        console.error('Ошибка при закрытии порта:', err.message);
-      } else {
-        console.log('Порт успешно закрыт');
-      }
-    });
-  } else {
-    console.log('Порт уже закрыт или не открыт');
-  }
-});
-
-// Отправка команды
-ipcMain.on('send-command', async (event, { command, selectedPort }) => {
-  if (!portOpen) {
-    try {
-      await openPort(selectedPort);
-      currentPort.write(command + '\n', (err) => {
-        if (err) {
-          console.error('Ошибка при отправке команды:', err.message);
-          event.reply('command-status', { success: false, error: err.message });
-        }
-      });
-    } catch (err) {
-      event.reply('command-status', { success: false, error: err });
-    }
-  } else {
-    currentPort.write(command + '\n', (err) => {
-      if (err) {
-        console.error('Ошибка при отправке команды:', err.message);
-        event.reply('command-status', { success: false, error: err.message });
-      }
-    });
-  }
-});
-
-// Обработка запроса на возобновление передачи
-ipcMain.on('resume-upload', (event) => {
-  if (!portOpen && isPaused) {
-    isPaused = false;
-    sendNextLine();
-  } else {
-    console.log('Передача не может быть возобновлена');
-  }
-});
-
-// Загрузка файла G-code
-ipcMain.on('load-gcode-file', (event, filePath) => {
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      console.error('Ошибка при чтении файла:', err.message);
-      event.reply('load-status', { success: false, error: err.message });
-      return;
-    }
-    event.reply('load-status', { success: true, gcodeData: data });
-  });
-});
-
