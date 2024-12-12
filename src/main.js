@@ -3,11 +3,16 @@ const path = require('node:path')
 const { store, defaultData } = require('./store')
 const { SerialPort } = require('serialport')
 const fs = require('fs')
+const { ReadlineParser } = require('@serialport/parser-readline');
+
 
 let portOpen = false; // Флаг, указывающий открыт ли порт
 const isDev = false;
-let port; // Объявляем переменную port заранее
-let isSended = false
+let port = null; // Объявляем переменную port заранее
+let gcodeLines = [];
+let isFirstCommand = true;
+let isOk = null;
+let endedToSend = false;
 
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -18,8 +23,8 @@ if (require('electron-squirrel-startup')) {
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: isDev ? 1440 : 8000,
-    height: isDev ? 900 : 600,
+    width: isDev ? 600 : 800,
+    height: isDev ? 600 : 600,
 
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -36,7 +41,6 @@ const createWindow = () => {
     mainWindow.webContents.openDevTools();
   }
 };
-
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -62,7 +66,6 @@ ipcMain.handle('showOpenDialog', async () => {
     filters: [{ name: 'G-code Files', extensions: ['gcode', 'txt'] }]
   });
 });
-
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
@@ -120,9 +123,7 @@ ipcMain.on('request-ports', async (event) => {
 
 ipcMain.on('upload-gcode', (event, { gcodeData, selectedPort }) => {
   if (!gcodeData || typeof gcodeData !== 'string') {
-    console.error(
-      'Ошибка: G-code данные не переданы или имеют неверный формат.'
-    );
+    console.error('Ошибка: G-code данные не переданы или имеют неверный формат.');
     event.reply('upload-status', {
       success: false,
       error: 'Неверные данные G-code.',
@@ -130,72 +131,73 @@ ipcMain.on('upload-gcode', (event, { gcodeData, selectedPort }) => {
     return;
   }
 
-  let gcodeLines = gcodeData.split('\n');
-  let currentLine = 0;
+  // Инициализируем массив команд
+  gcodeLines.push(...gcodeData.split('\n'));
+  console.log('G-code команды ожидающие передачи:', gcodeLines);
 
+  if (!port) {
+    port = new SerialPort({ path: selectedPort, baudRate: 115200 });
+
+    port.on('open', () => {
+      console.log('Порт ' + selectedPort + ' открыт.');
+      portOpen = true;
+
+      if (isFirstCommand) {
+        setTimeout(sendNextLine, 3000);
+        isFirstCommand = false;
+      } else if (endedToSend) {
+        console.log("ОПАСНАЯ ОТПРАВКА АААААААА!!!")
+        sendNextLine();
+      }
+       // Начинаем отправку при открытии порта
+    });
+
+    const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
+    parser.on('data', (data) => {
+      const trimmedData = data.trim();
+      console.log('Получено с порта: ' + trimmedData);
+
+      if (trimmedData.includes('ok')) {
+        sendNextLine(); // Продолжаем отправку при получении "ok"
+      }
+    });
+
+    port.on('error', (err) => {
+      console.error('Ошибка порта: ' + err.message);
+    });
+  }
+
+  // Функция отправки следующей строки
   const sendNextLine = () => {
-    if (!port) {
-      console.error('Ошибка: порт не инициализирован');
-      event.reply('upload-status', { success: false, error: 'Порт не инициализирован' });
+    if (!port || !portOpen) {
+      console.error('Ошибка: порт не инициализирован или закрыт');
       return;
     }
-  
-    if (currentLine < gcodeLines.length) {
-      let line = gcodeLines[currentLine];
-      port.write(line + '\n', (err) => {
+
+    gcodeLines = gcodeLines.filter(str => str !== "" && !str.startsWith(";"));
+
+    if (gcodeLines.length > 0) {
+      endedToSend = false;
+      const command = gcodeLines.shift();
+      console.log('Отправка команды:', command);
+      port.write(command + '\n', (err) => {
         if (err) {
-          console.error('Ошибка при отправке строки:', err.message);
-          event.reply('upload-status', { success: false, error: err.message });
-        } else if (isSended == true) {
-          currentLine++;
-          event.reply('progress-update', {
-            progress: (currentLine / gcodeLines.length) * 100,
-          });
-          setTimeout(sendNextLine, 1); // Пауза в 3 секунды между строками
-        } else {
-          currentLine++;
-          event.reply('progress-update', {
-            progress: (currentLine / gcodeLines.length) * 100,
-          });
-          isSended = true;
-          setTimeout(sendNextLine, 3000); // Пауза в 3 секунды при включении
+          console.error('Ошибка отправки команды:', err.message);
         }
       });
     } else {
-      return
+      console.log('Все команды отправлены.');
+      endedToSend = true;
+      //event.reply('upload-status', { success: true });
     }
   };
-  
 
+  // Если порт уже открыт, начинаем отправку сразу
   if (portOpen) {
-    console.log('Порт уже открыт, продолжаем выполнение.');
-    sendNextLine(); // Продолжаем отправку, если порт уже открыт
-    return;
-  }
-
-  // Инициализируем порт только сейчас
-  port = new SerialPort({ path: selectedPort, baudRate: 115200 });
-
-  port.on('open', () => {
-    console.log('Порт открыт');
-    portOpen = true;
-    sendNextLine(); // Начинаем отправку первой строки
-  });
-
-  port.on('data', (data) => {
-    if (data.includes('ok')) {
-      // Пропускаем строку, если принтер вернул 'ok'
+    console.log('Порт уже открыт. Начинаем отправку.');
+    if (endedToSend) {
+      console.log("ОПАСНАЯ ОТПРАВКА АААААААА!!!")
+      sendNextLine();
     }
-  });
-
-  port.on('error', (err) => {
-    console.error('Ошибка порта:', err.message);
-    event.reply('upload-status', { success: false, error: err.message });
-    portOpen = false;
-  });
-
-  // port.on('close', () => {
-  //   portOpen = false;
-  //   console.log('Порт закрыт');
-  // });
+  }
 });

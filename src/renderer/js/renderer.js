@@ -64,7 +64,7 @@ const uploadFileButton = document.getElementById('upload-file');
 uploadFileButton.addEventListener('click', async () => {
   const { canceled, filePaths } = await window.electronAPI.showOpenDialog({
     properties: ['openFile'],
-    filters: [{ name: 'G-code Files', extensions: ['gcode'] }]
+    filters: [{ name: 'G-code Files', extensions: ['txt', 'gcode'] }]
   });
   if (!canceled && filePaths.length > 0) {
     const gcodeData = await fs.promises.readFile(filePaths[0], 'utf8');
